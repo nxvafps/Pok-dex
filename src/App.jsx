@@ -111,6 +111,17 @@ function App() {
   useEffect(() => {
     setPageNumber(1);
   }, [searchQuery]);
+
+  useEffect(() => {
+    fetchPokemon();
+  }, []);
+
+  useEffect(() => {
+    const startIndex = (pageNumber - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    setDisplayedPokemon(filteredPokemon.slice(startIndex, endIndex));
+  }, [pageNumber, filteredPokemon]);
+
   const fetchPokemon = async () => {
     setLoading(true);
     try {
@@ -132,16 +143,6 @@ function App() {
     }
   };
   const ITEMS_PER_PAGE = 20;
-
-  useEffect(() => {
-    fetchPokemon();
-  }, []);
-
-  useEffect(() => {
-    const startIndex = (pageNumber - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
-    setDisplayedPokemon(filteredPokemon.slice(startIndex, endIndex));
-  }, [pageNumber, filteredPokemon]);
 
   const maxPages = Math.ceil(filteredPokemon.length / ITEMS_PER_PAGE);
 
