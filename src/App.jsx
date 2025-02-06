@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import styled from "styled-components";
 import axios from "axios";
 import "./App.css";
@@ -77,21 +77,46 @@ const Button = styled.button`
   }
 `;
 
-function App() {
-  const [pokemon, setPokemon] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(
-    "https://pokeapi.co/api/v2/pokemon"
-  );
-  const [nextPage, setNextPage] = useState();
-  const [prevPage, setPrevPage] = useState();
+const SearchBar = styled.input`
+  width: 100%;
+  max-width: 500px;
+  padding: 12px 20px;
+  margin: 20px auto;
+  display: block;
+  border: 2px solid #ddd;
+  border-radius: 25px;
+  font-size: 16px;
 
+  &:focus {
+    outline: none;
+    border-color: #3498db;
+  }
+`;
+
+function App() {
+  const [allPokemon, setAllPokemon] = useState([]);
+  const [displayedPokemon, setDisplayedPokemon] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [pageNumber, setPageNumber] = useState(1);
+
+  const filteredPokemon = useMemo(
+    () =>
+      allPokemon.filter((p) =>
+        p.name.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    [allPokemon, searchQuery]
+  );
+
+  useEffect(() => {
+    setPageNumber(1);
+  }, [searchQuery]);
   const fetchPokemon = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(currentPage);
-      setNextPage(response.data.next);
-      setPrevPage(response.data.previous);
+      const response = await axios.get(
+        "https://pokeapi.co/api/v2/pokemon?limit=1025"
+      );
       const pokemonData = await Promise.all(
         response.data.results.map(async (pokemon) => {
           const result = await axios.get(pokemon.url);
@@ -99,23 +124,32 @@ function App() {
         })
       );
 
-      setPokemon(pokemonData);
+      setAllPokemon(pokemonData);
       setLoading(false);
     } catch (error) {
       console.error("error loading pokemon", error);
       setLoading(false);
     }
   };
+  const ITEMS_PER_PAGE = 20;
 
   useEffect(() => {
     fetchPokemon();
-  }, [currentPage]);
+  }, []);
+
+  useEffect(() => {
+    const startIndex = (pageNumber - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    setDisplayedPokemon(filteredPokemon.slice(startIndex, endIndex));
+  }, [pageNumber, filteredPokemon]);
+
+  const maxPages = Math.ceil(filteredPokemon.length / ITEMS_PER_PAGE);
 
   function goToNextPage() {
-    setCurrentPage(nextPage);
+    setPageNumber((prev) => Math.min(maxPages, prev + 1));
   }
   function goToPrevPage() {
-    setCurrentPage(prevPage);
+    setPageNumber((prev) => Math.max(1, prev - 1));
   }
 
   if (loading) return "Loading...";
@@ -123,8 +157,14 @@ function App() {
   return (
     <Container>
       <Title>Pokédex</Title>
+      <SearchBar
+        type="text"
+        placeholder="Search Pokemon..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
       <Grid>
-        {pokemon.map((p) => (
+        {displayedPokemon.map((p) => (
           <Card key={p.id}>
             <img src={p.sprites.front_default} alt={p.name} />
             <h3>{p.name.charAt(0).toUpperCase() + p.name.slice(1)}</h3>
@@ -133,8 +173,13 @@ function App() {
         ))}
       </Grid>
       <PaginationContainer>
-        {prevPage && <Button onClick={goToPrevPage}>Previous</Button>}
-        {nextPage && <Button onClick={goToNextPage}>next</Button>}
+        <Button onClick={goToPrevPage} disabled={pageNumber === 1}>
+          Previous
+        </Button>
+
+        <Button onClick={goToNextPage} disabled={pageNumber >= maxPages}>
+          next
+        </Button>
       </PaginationContainer>
     </Container>
   );
